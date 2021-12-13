@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Configuration;
 using System.Windows.Forms;
 
 namespace TestGUIDriver
@@ -13,27 +14,76 @@ namespace TestGUIDriver
     public partial class Form1 : Form
     {
         private DateTime lasTime;
+        private short port, comMap;
+        private int delay;
+        private Keys keymap;
+        private bool isDebugMode;
 
         public Form1()
         {
             InitializeComponent();
+            lasTime = DateTime.Now;
+            try
+            {
+                initSetting();
+                hideWindow();
+                initSerial();
+            }
+            catch (FormatException e)
+            {
+                MessageBox.Show("配置文件格式错误，请重新编辑配置文件。");
+                System.Environment.Exit(0);
+            }
+            catch (NullReferenceException e)
+            {
+                MessageBox.Show("配置数量不正确，请重新编辑配置文件。");
+                System.Environment.Exit(0);
+            }
+            catch (COMException e)
+            {
+                MessageBox.Show("COM端口配置错误，请修改配置文件");
+                System.Environment.Exit(0);
+            }
+            catch (Exception e)
+            {
+                MessageBox.Show(e.Message, e.Source);
+                System.Environment.Exit(0);
+            }
+        }
+
+        private void initSetting()
+        {
+            string file = Application.ExecutablePath;
+            Configuration config = ConfigurationManager.OpenExeConfiguration(file);
+            port = Convert.ToInt16(config.AppSettings.Settings["port"].Value);
+            delay = Convert.ToInt32(config.AppSettings.Settings["delay"].Value);
+            comMap = Convert.ToInt16(config.AppSettings.Settings["com_map"].Value);
+            keymap = (Keys)Enum.Parse(typeof(Keys), config.AppSettings.Settings["keymap"].Value);
+            isDebugMode = config.AppSettings.Settings["debug_mode"].Value == "true";
+        }
+
+        private void hideWindow()
+        {
             Visible = false;
             this.Hide();
-            axMSComm1.CommPort = 3;
+        }
+
+        private void initSerial()
+        {
+            axMSComm1.CommPort = port;
             axMSComm1.PortOpen = true;
-            lasTime = DateTime.Now;
             axMSComm1.OnComm += AxMSComm1_OnComm;
         }
 
         private void AxMSComm1_OnComm(object sender, EventArgs e)
         {
-            Console.WriteLine((DateTime.Now - lasTime).Milliseconds);
-            if ((DateTime.Now - lasTime).Milliseconds > 500)
+            if (isDebugMode) MessageBox.Show(DateTime.Now+": "+"com key="+axMSComm1.CommEvent);
+            if ((DateTime.Now - lasTime).Milliseconds > delay)
             {
-                if (axMSComm1.CommEvent == 4)
+                if (axMSComm1.CommEvent == comMap)
                 {
                     lasTime = DateTime.Now;
-                    keybd_event((byte)Keys.F4, 0, 0, 0);
+                    keybd_event((byte)keymap, 0, 0, 0);
                 }
             }
         }
