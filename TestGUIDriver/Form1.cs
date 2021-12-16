@@ -7,6 +7,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Configuration;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace TestGUIDriver
@@ -18,6 +19,7 @@ namespace TestGUIDriver
         private int delay;
         private Keys keymap;
         private bool isDebugMode;
+        private IKeyDown keyDownHandler;
 
         public Form1()
         {
@@ -60,6 +62,15 @@ namespace TestGUIDriver
             comMap = Convert.ToInt16(config.AppSettings.Settings["com_map"].Value);
             keymap = (Keys)Enum.Parse(typeof(Keys), config.AppSettings.Settings["keymap"].Value);
             isDebugMode = config.AppSettings.Settings["debug_mode"].Value == "true";
+            if (config.AppSettings.Settings["enable_win32_api"].Value == "true")
+            {
+                keyDownHandler = new Win32ApiKeyDown();
+            }
+            else
+            {
+                keyDownHandler = new DotNetApiKeyDown();
+            }
+            keyDownHandler.KeyDown(keymap);
         }
 
         private void hideWindow()
@@ -83,10 +94,26 @@ namespace TestGUIDriver
                 if (axMSComm1.CommEvent == comMap)
                 {
                     lasTime = DateTime.Now;
-                    keybd_event((byte)keymap, 0, 0, 0);
+                    keyDownHandler.KeyDown(keymap);
                 }
             }
         }
+    }
+
+    public interface IKeyDown
+    {
+        void KeyDown(Keys key);
+    }
+
+    public class Win32ApiKeyDown:IKeyDown
+    {
+        public void KeyDown(Keys key)
+        {
+            keybd_event((byte)key, 0, 0, 0);
+            Thread.Sleep(30);
+            keybd_event((byte)key, 0, 2, 0);
+        }
+
 
         [DllImport("user32.dll", EntryPoint = "keybd_event")]
         public static extern void keybd_event(
@@ -95,5 +122,14 @@ namespace TestGUIDriver
             int dwFlags,  //这里是整数类型  0 为按下，2为释放
             int dwExtraInfo  //这里是整数类型 一般情况下设成为 0
         );
+    }
+
+    public class DotNetApiKeyDown : IKeyDown
+    {
+        public void KeyDown(Keys key)
+        {
+            var keyStr = key.ToString().Length > 1 ? "{" + key.ToString() + "}" : key.ToString();
+            SendKeys.Send(keyStr);
+        }
     }
 }
