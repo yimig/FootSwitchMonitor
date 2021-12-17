@@ -70,7 +70,6 @@ namespace TestGUIDriver
             {
                 keyDownHandler = new DotNetApiKeyDown();
             }
-            keyDownHandler.KeyDown(keymap);
         }
 
         private void hideWindow()
@@ -109,9 +108,9 @@ namespace TestGUIDriver
     {
         public void KeyDown(Keys key)
         {
-            keybd_event((byte)key, 0, 0, 0);
+            keybd_event((byte)key, 0, 0, 0);  //模拟键盘按下
             Thread.Sleep(30);
-            keybd_event((byte)key, 0, 2, 0);
+            keybd_event((byte)key, 0, 2, 0);  //模拟键盘抬起
         }
 
 
